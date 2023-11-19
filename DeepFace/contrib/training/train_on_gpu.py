@@ -5,6 +5,7 @@ from tensorflow import keras
 from tensorflow.keras.optimizers import SGD
 tf.compat.v1.disable_eager_execution()
 
+
 initial_learning_rate = 0.01
 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
     initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
@@ -16,7 +17,7 @@ IMAGE_SIZE = (152, 152)
 CHANNELS = 3
 NUM_CLASSES = 8631
 
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 LEARN_RATE = 0.01 * (BATCH_SIZE / 128)
 MOMENTUM = 0.9
 EPOCHS = 15
@@ -30,14 +31,16 @@ TB_PATH = 'D:/code test/DeepFace2/LOG'
 
 keras.backend.clear_session()
 
-from deepface import dataset
-train, val = dataset.get_train_test_dataset(CL_PATH, DATASET_PATH, IMAGE_SIZE, BATCH_SIZE)
+# Change the import statement for deepface
+from deepface.dataset import get_train_test_dataset, SHUFFLE_BUFFER
+
+train, val = get_train_test_dataset(CL_PATH, DATASET_PATH, IMAGE_SIZE, BATCH_SIZE)
 # these are essential values that have to be set
 # in order to determine the right number of steps per epoch
 train_samples, val_samples = 2307424, 25893
 # this value is set so as to ensure
 #  proper shuffling of dataset
-dataset.SHUFFLE_BUFFER = train_samples
+SHUFFLE_BUFFER = train_samples
 print('train.num_classes == ', train.num_classes)
 print('validate.num_classes == ', val.num_classes)
 #assert train.num_classes == val.num_classes == NUM_CLASSES
@@ -56,10 +59,12 @@ checkpoints = keras.callbacks.ModelCheckpoint(
 
 cbs = [reduce_lr, checkpoints, tensorboard]
 
-from deepface import deepface
+# Change the import statement for deepface
+from deepface.deepface import create_deepface
 
 
-model=deepface.create_deepface(IMAGE_SIZE, CHANNELS, NUM_CLASSES, LEARN_RATE, MOMENTUM) 
+
+model=create_deepface(IMAGE_SIZE, CHANNELS, NUM_CLASSES, LEARN_RATE, MOMENTUM) 
 
 # model.compile(loss='binary_crossentropy', metrics=['accuracy'])
 optimizer = tf.keras.optimizers.legacy.SGD(learning_rate=initial_learning_rate, momentum=0.9, nesterov=True)
@@ -79,7 +84,7 @@ model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accurac
 #     epochs=EPOCHS
 # )
 
-model.fit(train.data, steps_per_epoch=train_samples // BATCH_SIZE + 1,
+model.fit(train.data, steps_per_epoch= min (train_samples // BATCH_SIZE + 1, 2000),
     validation_data=val.data, validation_steps=val_samples // BATCH_SIZE + 1,
     callbacks=cbs, epochs=EPOCHS)
 
