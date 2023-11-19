@@ -9,13 +9,14 @@ initial_learning_rate = 0.01
 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
     initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
 )
-opt = tf.keras.optimizers.legacy.SGD(learning_rate=lr_schedule, momentum=0.9, nesterov=True)
+# opt = tf.keras.optimizers.legacy.SGD(learning_rate=lr_schedule, momentum=0.9, nesterov=True)
+opt = tf.keras.optimizers.legacy.SGD(learning_rate=initial_learning_rate, momentum=0.9, nesterov=True)
 
 IMAGE_SIZE = (152, 152)
 CHANNELS = 3
-NUM_CLASSES = 8632
+NUM_CLASSES = 8631
 
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 LEARN_RATE = 0.01 * (BATCH_SIZE / 128)
 MOMENTUM = 0.9
 EPOCHS = 15
@@ -44,8 +45,14 @@ print('validate.num_classes == ', val.num_classes)
 reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1,
     patience=1, min_lr=0.0001, verbose=1) # mandatory step in training, as specified in paper
 tensorboard = keras.callbacks.TensorBoard(TB_PATH)
-checkpoints = keras.callbacks.ModelCheckpoint('weights.{epoch:02d}_{val_acc:.4f}.hdf5',
-    monitor='val_acc', save_weights_only=True)
+# checkpoints = keras.callbacks.ModelCheckpoint('weights.{epoch:02d}_{val_acc:.4f}.hdf5',
+#     monitor='val_acc', save_weights_only=True)
+checkpoints = keras.callbacks.ModelCheckpoint(
+    'weights.{epoch:02d}_{val_accuracy:.4f}.hdf5',
+    monitor='val_accuracy',  # Change 'val_acc' to 'val_accuracy'
+    save_weights_only=True
+)
+
 
 cbs = [reduce_lr, checkpoints, tensorboard]
 
@@ -53,13 +60,27 @@ from deepface import deepface
 
 
 model=deepface.create_deepface(IMAGE_SIZE, CHANNELS, NUM_CLASSES, LEARN_RATE, MOMENTUM) 
-model.compile(loss='binary_crossentropy', metrics=['accuracy'])
-optimizer = tf.keras.optimizers.legacy.SGD(learning_rate=lr_schedule, momentum=0.9, nesterov=True)
-model.optimizer = optimizer
+
+# model.compile(loss='binary_crossentropy', metrics=['accuracy'])
+optimizer = tf.keras.optimizers.legacy.SGD(learning_rate=initial_learning_rate, momentum=0.9, nesterov=True)
+
 model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
+
+# model.fit(train.data, steps_per_epoch=train_samples // BATCH_SIZE + 1,
+#     validation_data=val.data, validation_steps=val_samples // BATCH_SIZE + 1,
+#     callbacks=cbs, epochs=EPOCHS)
+# model.fit_generator(
+#     train.data,
+#     steps_per_epoch=min(train_samples // BATCH_SIZE + 1, 1500),  # Adjust the number of steps as needed
+#     validation_data=val.data,
+#     validation_steps=val_samples // BATCH_SIZE + 1,
+#     callbacks=cbs,
+#     epochs=EPOCHS
+# )
 
 model.fit(train.data, steps_per_epoch=train_samples // BATCH_SIZE + 1,
     validation_data=val.data, validation_steps=val_samples // BATCH_SIZE + 1,
     callbacks=cbs, epochs=EPOCHS)
+
 model.save('model.h5')
